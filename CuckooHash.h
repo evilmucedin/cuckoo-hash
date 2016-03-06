@@ -7,7 +7,8 @@
 template <typename K,
           typename V,
           typename Hash0,
-          typename Hash1>
+          typename Hash1,
+          typename Hash2>
 class CuckooHash {
  public:
   using Pair = std::pair<K, V>;
@@ -31,23 +32,46 @@ class CuckooHash {
   void init(const Vector& content, const K& invalidKey) {
     invalidKey_ = invalidKey;
 
-    size_t size = static_cast<float>(content.size())*1.2 + 1;
+    size_t size = static_cast<float>(content.size()) * 1.1f + 1;
     while (!initWithSize(content, size)) {
-        size = static_cast<float>(size*1.05) + 1;
+      size = static_cast<float>(size) * 1.05f + 1;
     }
   }
 
   bool lookup(const K& key, V* value) const {
     size_t hash0 = hasher0_(key) % data_.size();
     if (data_[hash0].key_ == key) {
-        *value = data_[hash0].value_;
-        return true;
+      *value = data_[hash0].value_;
+      return true;
     }
+    hash0 = (hash0 + 1) % data_.size();
+    if (data_[hash0].key_ == key) {
+      *value = data_[hash0].value_;
+      return true;
+    }
+
     size_t hash1 = hasher1_(key) % data_.size();
     if (data_[hash1].key_ == key) {
-        *value = data_[hash1].value_;
-        return true;
+      *value = data_[hash1].value_;
+      return true;
     }
+    hash1 = (hash1 + 1) % data_.size();
+    if (data_[hash1].key_ == key) {
+      *value = data_[hash1].value_;
+      return true;
+    }
+
+    size_t hash2 = hasher2_(key) % data_.size();
+    if (data_[hash2].key_ == key) {
+      *value = data_[hash2].value_;
+      return true;
+    }
+    hash2 = (hash2 + 1) % data_.size();
+    if (data_[hash2].key_ == key) {
+      *value = data_[hash2].value_;
+      return true;
+    }
+
     return false;
   }
 
@@ -62,29 +86,72 @@ class CuckooHash {
     dummy.key_ = invalidKey_;
     data_.resize(size, dummy);
 
-    for (const auto& item: content) {
-        Data current;
-        current.key_ = item.first;
-        current.value_ = item.second;
-        size_t j = 0;
-        while (j < size) {
-            size_t hash0 = hasher0_(current.key_) % data_.size();
-            if (data_[hash0].key_ == invalidKey_) {
-                data_[hash0] = current;
-                break;
-            }
-            size_t hash1 = hasher1_(current.key_) % data_.size();
-            if (data_[hash1].key_ == invalidKey_) {
-                data_[hash1] = current;
-                break;
-            } else {
-                std::swap(data_[hash1], current);
-            }
-            ++j;
+    for (const auto& item : content) {
+      Data current;
+      current.key_ = item.first;
+      current.value_ = item.second;
+      size_t j = 0;
+      while (j < size) {
+        size_t hash0 = hasher0_(current.key_) % data_.size();
+        if (data_[hash0].key_ == invalidKey_) {
+          data_[hash0] = current;
+          break;
         }
-        if (j == size) {
-            return false;
+        size_t hash01 = (hash0 + 1) % data_.size();
+        if (data_[hash01].key_ == invalidKey_) {
+          data_[hash01] = current;
+          break;
         }
+
+        size_t hash1 = hasher1_(current.key_) % data_.size();
+        if (data_[hash1].key_ == invalidKey_) {
+          data_[hash1] = current;
+          break;
+        }
+        size_t hash11 = (hash1 + 1) % data_.size();
+        if (data_[hash11].key_ == invalidKey_) {
+          data_[hash11] = current;
+          break;
+        }
+
+        size_t hash2 = hasher2_(current.key_) % data_.size();
+        if (data_[hash2].key_ == invalidKey_) {
+          data_[hash2] = current;
+          break;
+        }
+        size_t hash21 = (hash2 + 1) % data_.size();
+        if (data_[hash21].key_ == invalidKey_) {
+          data_[hash21] = current;
+          break;
+        }
+
+        size_t index = hash0;
+        switch (pseudoRandom_ % 3) {
+          case 0:
+            index = hash0;
+            break;
+          case 1:
+            index = hash1;
+            break;
+          case 2:
+            index = hash2;
+            break;
+        }
+
+        if (j & 1) {
+          index = (index + 1) % data_.size();
+        }
+
+        std::swap(data_[index], current);
+
+        ++j;
+        pseudoRandom_ =
+            pseudoRandom_ * 6364136223846793005ul + 1442695040888963407ul;
+      }
+
+      if (j == size) {
+        return false;
+      }
     }
 
     return true;
@@ -93,5 +160,7 @@ class CuckooHash {
   DataVector data_;
   Hash0 hasher0_;
   Hash1 hasher1_;
+  Hash2 hasher2_;
   K invalidKey_;
+  uint64_t pseudoRandom_{0};
 };
