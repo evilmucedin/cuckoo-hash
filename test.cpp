@@ -6,6 +6,7 @@
 
 using namespace std;
 
+namespace {
 struct Hash0 {
     uint64_t operator()(uint64_t value) const {
         return ((value << 7) + 11) ^ (value >> 57) ^ value;
@@ -23,6 +24,7 @@ struct Hash2 {
         return ((value << 17) + 37) ^ (value >> 47) ^ value;
     }
 };
+}
 
 int main() {
     using CH = CuckooHash<uint64_t, uint64_t, Hash0, Hash1, Hash2>;
