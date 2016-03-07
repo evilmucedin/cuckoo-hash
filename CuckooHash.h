@@ -22,7 +22,11 @@ class CuckooHash {
 #pragma pack(pop)
   using DataVector = std::vector<Data>;
 
-  CuckooHash() : invalidKey_(static_cast<K>(-1)) {}
+  CuckooHash()
+    : invalidKey_(static_cast<K>(-1))
+  {
+    resizeData(1);
+  }
 
   CuckooHash(const Vector& content, const K& invalidKey)
       : invalidKey_(invalidKey) {
@@ -80,11 +84,15 @@ class CuckooHash {
   bool hasValue(const Data& data) const { return data.key_ != invalidKey_; }
 
  private:
-  bool initWithSize(const Vector& content, size_t size) {
+  void resizeData(size_t size) {
     data_.clear();
     Data dummy;
     dummy.key_ = invalidKey_;
     data_.resize(size, dummy);
+  }
+
+  bool initWithSize(const Vector& content, size_t size) {
+    resizeData(size);
 
     for (const auto& item : content) {
       Data current;
